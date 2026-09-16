@@ -276,7 +276,6 @@ double resolveSuperAgentInputBottomInset({
 }
 
 @visibleForTesting
-@visibleForTesting
 bool shouldScrollChatToBottom({
   required DateTime now,
   required DateTime? lastScrollAt,
@@ -469,6 +468,10 @@ class AgentChatDialog extends StatefulWidget {
   final bool initialIsLoadingAgent;
   @visibleForTesting
   final ChatTokenUsageEvent? initialTokenUsage;
+  @visibleForTesting
+  final Stream<ChatEvent>? chatEventsForTesting;
+  @visibleForTesting
+  final DateTime Function()? scrollClockForTesting;
 
   const AgentChatDialog({
     super.key,
@@ -481,6 +484,8 @@ class AgentChatDialog extends StatefulWidget {
     this.initialItems = const [],
     this.initialIsLoadingAgent = false,
     this.initialTokenUsage,
+    this.chatEventsForTesting,
+    this.scrollClockForTesting,
   });
 
   @override
@@ -606,6 +611,10 @@ class _AgentChatDialogState extends State<AgentChatDialog>
 
     if (_currentSessionId != null) {
       _loadSessionHistory();
+    }
+    final chatEvents = widget.chatEventsForTesting;
+    if (chatEvents != null) {
+      _listenToChatStream(chatEvents);
     }
   }
 
@@ -1724,8 +1733,10 @@ class _AgentChatDialogState extends State<AgentChatDialog>
     return processItem;
   }
 
-  void _scrollToBottom({bool force = false}) {
-    final now = DateTime.now();
+  // Only stream flushes opt into throttling. Explicit user actions and
+  // approval requests must still reveal the latest content immediately.
+  void _scrollToBottom({bool force = true}) {
+    final now = widget.scrollClockForTesting?.call() ?? DateTime.now();
     if (!shouldScrollChatToBottom(
       now: now,
       lastScrollAt: _lastChatScrollAt,
